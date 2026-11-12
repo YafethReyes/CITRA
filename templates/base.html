@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Citra{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav glass">
+    <a class="wordmark" href="{{ url_for('home') }}">Citra</a>
+    {% if me %}
+    <nav aria-label="Main">
+      {% if me.role == 'brand' %}<a href="{{ url_for('home') }}">Creators</a>{% else %}<a href="{{ url_for('brands_feed') }}">Brands</a>{% endif %}
+      <a href="{{ url_for('dashboard') }}">Calendar</a>
+      <a href="{{ url_for('tasks') }}">Tasks{% set n = todo_count() %}{% if n %}<span class="badge" aria-label="{{ n }} to do">{{ n }}</span>{% endif %}</a>
+      <span class="who">{{ me.brand.company_name if me.role == 'brand' else me.influencer.display_name }}</span>
+      <a href="{{ url_for('logout') }}">Log out</a>
+    </nav>
+    {% endif %}
+  </header>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+      <div class="flash glass {{ cat }}" role="status">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <main id="main" class="wrap">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

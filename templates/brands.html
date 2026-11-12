@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Brands – Citra{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:0;">
+  <h1 class="display md">{{ 'Brands you passed on' if show_passed else 'Brands to work with' }}</h1>
+  <p class="lede">{{ 'Reconsider a brand to let it find you again.' if show_passed else 'Tell a brand you are interested. A brand you pass on will not see you or be able to send you offers.' }}</p>
+</section>
+
+<section class="feed" aria-label="Brands">
+  {% for b in brands %}
+  {% set photo = brand_photo(b) %}
+  {% set tone = b.user_id % 3 %}
+  {% set st = mine.get(b.user_id) %}
+  <article class="post">
+    <header class="post-head">
+      <span class="mini t{{ tone }}">{{ b.company_name[0] }}{% if photo %}<img src="{{ photo }}" alt="" loading="lazy" onerror="this.remove()">{% endif %}</span>
+      <div>
+        <strong>{{ b.company_name }}</strong>
+        <span>{{ b.industry }}</span>
+      </div>
+    </header>
+    <div class="post-photo t{{ tone }}">
+      {{ b.company_name[0] }}
+      {% if photo %}<img src="{{ photo }}" alt="Logo of {{ b.company_name }}" loading="lazy" onerror="this.remove()">{% endif %}
+      {% if st == 'interested' %}<span class="chip glass">You are interested</span>{% endif %}
+    </div>
+    <div class="post-body">
+      <p class="post-caption"><strong>{{ b.company_name }}</strong> {{ b.description }}</p>
+      <form method="post" action="{{ url_for('set_interest', bid=b.user_id) }}" class="actions" style="margin-top:.7rem;">
+        {% if show_passed %}<input type="hidden" name="show" value="passed">{% endif %}
+        {% if st == 'declined' %}
+          <button class="btn cobalt" name="action" value="clear">Reconsider</button>
+        {% elif st == 'interested' %}
+          <button class="btn ghost" name="action" value="clear">Undo</button>
+          <button class="btn ghost" name="action" value="declined">Not interested</button>
+        {% else %}
+          <button class="btn cobalt" name="action" value="interested">I'm interested</button>
+          <button class="btn ghost" name="action" value="declined">Not interested</button>
+        {% endif %}
+      </form>
+    </div>
+  </article>
+  {% else %}
+  <p class="empty muted">{{ 'You have not passed on any brand.' if show_passed else 'No brands to show right now.' }}</p>
+  {% endfor %}
+</section>
+
+<p style="margin: -2rem 0 5rem;">
+  {% if show_passed %}<a class="post-link" href="{{ url_for('brands_feed') }}">Back to brands</a>
+  {% elif passed_count %}<a class="post-link" href="{{ url_for('brands_feed', show='passed') }}">Brands you passed on ({{ passed_count }})</a>{% endif %}
+</p>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Calendar – Citra{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:0;">
+  <h1 class="display md">{{ 'Your campaign calendar' if me.role == 'brand' else 'Your agenda' }}</h1>
+</section>
+
+<div class="cal-layout">
+  <section aria-label="Calendar">
+    <div class="cal-head">
+      <h2>{{ first.strftime('%B %Y') }}</h2>
+      <div class="cal-nav">
+        <a href="{{ url_for('dashboard', month=prev_month) }}">Previous</a>
+        <a href="{{ url_for('dashboard') }}">Today</a>
+        <a href="{{ url_for('dashboard', month=next_month) }}">Next</a>
+      </div>
+    </div>
+    <div class="legend">
+      <span class="k-start">Campaign starts</span>
+      <span class="k-post">Post the content</span>
+      <span class="k-results">Results due</span>
+    </div>
+
+    <div class="cal-scroll">
+      <div class="cal">
+        {% for name in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}<div class="dow">{{ name }}</div>{% endfor %}
+        {% for week in weeks %}{% for d in week %}
+          {% set evs = events.get(d, []) %}
+          <div class="day{{ ' other' if d.month != first.month }}{{ ' today' if d == today }}">
+            <span class="dnum">{{ d.day }}</span>
+            {% for e in evs[:3] %}
+              <a class="ev k-{{ e.kind }}{{ ' done' if e.done }}" href="{{ url_for('campaign_detail', cid=e.cid) }}" title="{{ e.text }}">{{ e.text }}</a>
+            {% endfor %}
+            {% if evs|length > 3 %}<span class="more">+{{ evs|length - 3 }} more</span>{% endif %}
+          </div>
+        {% endfor %}{% endfor %}
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

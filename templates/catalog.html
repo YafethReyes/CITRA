@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Creators – Citra{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1 class="display">Choose the creator.<br>Send the offer.</h1>
+  <div class="stage filterwrap alt">
+  <form class="glass filter" method="get" aria-label="Filter creators">
+    <label for="niche">Niche</label>
+    <div class="row-inline">
+      <select id="niche" name="niche">
+        <option value="">All niches</option>
+        {% for n in niches %}
+          <option value="{{ n }}" {{ 'selected' if n == selected }}>{{ n|capitalize }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn" type="submit">Filter</button>
+    </div>
+  </form>
+  </div>
+</section>
+
+<section class="feed" aria-label="Creators">
+  {% for inf in influencers %}
+  {% set photo = creator_photo(inf) %}
+  {% set tone = inf.user_id % 3 %}
+  {% set profile = url_for('creator_profile', uid=inf.user_id) %}
+  <article class="post">
+    <header class="post-head">
+      <span class="mini t{{ tone }}">{{ inf.display_name[0] }}{% if photo %}<img src="{{ photo }}" alt="" loading="lazy" onerror="this.remove()">{% endif %}</span>
+      <div>
+        <strong>{{ inf.display_name }}</strong>
+        <span>{{ inf.niche|capitalize }}</span>
+      </div>
+    </header>
+    <a class="post-photo t{{ tone }}" href="{{ profile }}" aria-label="Open {{ inf.display_name }}'s profile">
+      {{ inf.display_name[0] }}
+      {% if photo %}<img src="{{ photo }}" alt="Portrait of {{ inf.display_name }}" loading="lazy" onerror="this.remove()">{% endif %}
+      {% if inf.user_id in interested %}<span class="tag glass">Interested in your brand</span>{% endif %}
+      <span class="chip glass">{{ inf.followers|num }} followers</span>
+    </a>
+    <div class="post-body">
+      <p class="post-stat"><b>{{ inf.avg_monthly_views|num }}</b> views a month</p>
+      <p class="post-caption"><strong>{{ inf.display_name }}</strong> {{ inf.bio }}</p>
+      <p class="post-values">{{ inf.values_text }}</p>
+      <a class="post-link" href="{{ profile }}">View profile and send an offer</a>
+    </div>
+  </article>
+  {% else %}
+  <p class="empty muted">No creators match this niche yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}

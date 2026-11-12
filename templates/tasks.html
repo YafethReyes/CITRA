@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Tasks – Citra{% endblock %}
+
+{% macro progress(step, total, label) -%}
+  <div class="steps" role="img" aria-label="Step {{ step }} of {{ total }}: {{ label }}">
+    {%- for i in range(1, total + 1) %}<i class="{{ 'on' if i <= step }}"></i>{% endfor -%}
+  </div>
+  <p class="step-label">Step {{ step }} of {{ total }}: {{ label }}</p>
+{%- endmacro %}
+
+{% macro row(t, other) -%}
+  <article class="task">
+    <div>
+      <a class="task-text" href="{{ url_for('campaign_detail', cid=t.c.id) }}">{{ t.text }}</a>
+      <small>{{ t.c.title }}, with {{ other }}{% if t.due %}. Due {{ t.due.strftime('%b %d') }}{% endif %}{% if t.overdue %} <span class="late">Overdue</span>{% endif %}</small>
+    </div>
+    <div>{{ progress(t.step, steps_total, STATUS_LABELS[t.c.status]) }}</div>
+  </article>
+{%- endmacro %}
+
+{% block content %}
+{% set brand_view = (me.role == 'brand') %}
+<section class="hero" style="padding-bottom:0;">
+  <h1 class="display md">Tasks</h1>
+  <p class="lede">What needs you, what is waiting on someone else, and how far along each campaign is.</p>
+</section>
+
+<section class="tasks" aria-label="To do">
+  <h2 class="section-title">To do</h2>
+  {% for t in todo %}{{ row(t, t.c.influencer.display_name if brand_view else t.c.brand.company_name) }}
+  {% else %}<p class="muted">Nothing needs you right now.</p>{% endfor %}
+</section>
+
+<section class="tasks" aria-label="Waiting on others">
+  <h2 class="section-title">Waiting on others</h2>
+  {% for t in waiting %}{{ row(t, t.c.influencer.display_name if brand_view else t.c.brand.company_name) }}
+  {% else %}<p class="muted">You are not waiting on anyone.</p>{% endfor %}
+</section>
+
+{% if done %}
+<section class="tasks" aria-label="Completed" style="margin-bottom:5rem;">
+  <h2 class="section-title">Completed</h2>
+  {% for t in done %}{{ row(t, t.c.influencer.display_name if brand_view else t.c.brand.company_name) }}{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

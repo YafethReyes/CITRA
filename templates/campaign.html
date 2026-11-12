@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}{{ c.title }} – Citra{% endblock %}
+
+{% macro pay_state(p) -%}
+  {%- if not p -%}Not paid yet
+  {%- elif p.paypal_payout_id -%}Paid out to the creator
+  {%- elif p.status == 'completed' -%}Collected and held by Citra
+  {%- else -%}Waiting for PayPal approval{%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+{% set is_brand = (me.id == c.brand_id) %}
+{% set other = c.influencer.display_name if is_brand else c.brand.company_name %}
+{% set last = c.negotiations[-1] if c.negotiations else none %}
+{% set base_pay = c.payment('base') %}
+{% set bonus_pay = c.payment('bonus') %}
+{% set base_released = base_pay and base_pay.paypal_payout_id %}
+{% set bonus_earned = c.roi and c.roi.bonus_goal_met and c.bonus_amount > 0 %}
+<div class="split">
+
+  <article>
+    <p class="status s-{{ STATUS_TONE[c.status] }}">{{ STATUS_LABELS[c.status] }}</p>
+    <h1 class="display md">{{ c.title }}</h1>
+    <p class="lede">{{ c.product_name }}, a campaign with {{ other }}.</p>
+
+    <dl class="terms">
+      {% if c.product_category %}<dt>Category</dt><dd>{{ c.product_category }}</dd>{% endif %}
+      <dt>Videos</dt><dd>{{ c.videos_count }}</dd>
+      <dt>Base payment</dt><dd class="num">{{ c.base_payment|money }}</dd>
+      {% if c.bonus_amount > 0 %}
+      <dt>Bonus</dt>
+      <dd>{{ c.bonus_amount|money }} when {{ METRIC_LABELS[c.bonus_metric] }} reach {{ c.bonus_threshold|num }}</dd>
+      {% endif %}
+      {% if c.start_date %}<dt>Campaign start</dt><dd>{{ c.start_date.strftime('%B %d, %Y') }}</dd>{% endif %}
+      {% if c.deadline_date %}<dt>Content deadline</dt><dd>{{ c.deadline_date.strftime('%B %d, %Y') }}</dd>
+      <dt>Results due</dt><dd>{{ c.results_due_date.strftime('%B %d, %Y') }}</dd>{% endif %}
+      {% if c.description %}<dt>Brief</dt><dd style="font-weight:400;">{{ c.description }}</dd>{% endif %}
+    </dl>
+
+    {% if last %}
+    <h2 class="section-title">Counter-proposal</h2>
+    <dl class="terms">
+      <dt>Videos requested</dt><dd>{{ last.videos_count }}</dd>
+      {% if last.message %}<dt>Message</dt><dd style="font-weight:400;">{{ last.message }}</dd>{% endif %}
+    </dl>
+    {% endif %}
+
+    {% if c.shipping and is_brand %}
+    <h2 class="section-title">Shipping details</h2>
+    <dl class="terms">
+      <dt>Name</dt><dd>{{ c.shipping.full_name }}</dd>
+      <dt>Address</dt><dd>{{ c.shipping.address_line }}, {{ c.shipping.city }} {{ c.shipping.postal_code }}, {{ c.shipping.country }}</dd>
+      {% if c.shipping.phone %}<dt>Phone</dt><dd>{{ c.shipping.phone }}</dd>{% endif %}
+      {% if c.shipping.clothing_size %}<dt>Size</dt><dd>{{ c.shipping.clothing_size }}</dd>{% endif %}
+    </dl>
+    {% endif %}
+
+    {% if c.report %}
+    <h2 class="section-title">Reported results</h2>
+    <dl class="terms">
+      <dt>Views</dt><dd class="num">{{ c.report.reported_views|num }}{% if c.report.ai_views is not none %}<span class="muted" style="font-weight:400;"> (screenshot: {{ c.report.ai_views|num }})</span>{% endif %}</dd>
+      <dt>Likes</dt><dd class="num">{{ c.report.reported_likes|num }}{% if c.report.ai_likes is not none %}<span class="muted" style="font-weight:400;"> (screenshot: {{ c.report.ai_likes|num }})</span>{% endif %}</dd>
+      <dt>Comments</dt><dd class="num">{{ c.report.reported_comments|num }}{% if c.report.ai_comments is not none %}<span class="muted" style="font-weight:400;"> (screenshot: {{ c.report.ai_comments|num }})</span>{% endif %}</dd>
+    </dl>
+    {% if c.report.verification_note %}
+    <p class="status {{ 's-done' if c.report.metrics_match else ('s-review' if c.report.metrics_match is sameas false else 's-closed') }}" style="margin-top:1.2rem;">{{ c.report.verification_note }}</p>
+    {% endif %}
+    <img class="shot" src="{{ url_for('uploads', filename=c.report.screenshot_path) }}" alt="Screenshot of the creator's stats">
+    {% endif %}
+
+    {% if c.roi %}
+    <h2 class="section-title">ROI report</h2>
+    <p class="report-text">{{ c.roi.summary_text }}</p>
+    <dl class="terms">
+      <dt>Total cost</dt><dd class="num">{{ c.roi.total_spent|money }}</dd>
+      {% if c.roi.cost_per_view is not none %}<dt>Cost per view</dt><dd class="num">{{ '$%.4f'|format(c.roi.cost_per_view) }}</dd>{% endif %}
+      {% if c.roi.cost_per_engagement is not none %}<dt>Cost per engagement</dt><dd class="num">{{ '$%.4f'|format(c.roi.cost_per_engagement) }}</dd>{% endif %}
+      {% if c.roi.engagement_rate is not none %}<dt>Engagement rate</dt><dd class="num">{{ '%.2f'|format(c.roi.engagement_rate) }}%</dd>{% endif %}
+      {% if c.bonus_amount > 0 %}<dt>Bonus goal</dt><dd>{{ 'Reached' if c.roi.bonus_goal_met else 'Not reached or not confirmed' }}</dd>{% endif %}
+      <dt>Recommendation</dt><dd style="font-weight:400;">{{ c.roi.recommendation }}</dd>
+    </dl>
+    {% endif %}
+
+    {% if c.status not in ['offered', 'negotiating', 'rejected'] %}
+    <h2 class="section-title">Payments</h2>
+    <dl class="terms">
+      <dt>Base payment</dt><dd>{{ c.base_payment|money }}, {{ pay_state(base_pay) }}</dd>
+      {% if c.bonus_amount > 0 %}
+      <dt>Bonus</dt>
+      <dd>{{ c.bonus_amount|money }}, {% if c.roi and not c.roi.bonus_goal_met %}not earned{% elif not c.roi %}decided after the results{% else %}{{ pay_state(bonus_pay) }}{% endif %}</dd>
+      {% endif %}
+    </dl>
+    {% endif %}
+  </article>
+
+  <div class="stage sticky">
+  <aside class="glass panel stack" aria-label="Next step">
+  {% if not is_brand %}
+
+    {% if c.status == 'offered' %}
+      <h2>{{ c.brand.company_name }} wants to work with you</h2>
+      <p class="muted" style="margin:0;">Accept as offered, decline, or propose different terms.</p>
+      <form method="post" action="{{ url_for('respond', cid=c.id) }}" class="actions">
+        <button class="btn cobalt" name="action" value="accept">Accept offer</button>
+        <button class="btn ghost" name="action" value="reject">Decline</button>
+      </form>
+      <hr>
+      <form method="post" action="{{ url_for('respond', cid=c.id) }}" class="stack">
+        <h3>Propose changes</h3>
+        <label>Number of videos <input type="number" name="videos_count" min="1" value="{{ c.videos_count }}" required></label>
+        <label>Message <textarea name="message" rows="3"></textarea></label>
+        <button class="btn" name="action" value="negotiate">Send counter-proposal</button>
+      </form>
+
+    {% elif c.status == 'negotiating' %}
+      <h2>Waiting for {{ c.brand.company_name }}</h2>
+      <p class="muted" style="margin:0;">They are reviewing your counter-proposal.</p>
+
+    {% elif c.status in ['accepted', 'paid_base'] and not c.shipping %}
+      <h2>Where should we send the product?</h2>
+      <form method="post" action="{{ url_for('save_shipping', cid=c.id) }}" class="stack">
+        <label>Full name <input name="full_name" required></label>
+        <label>Address <input name="address_line" required></label>
+        <div class="cols">
+          <label>City <input name="city" required></label>
+          <label>Postal code <input name="postal_code"></label>
+        </div>
+        <div class="cols">
+          <label>Country <input name="country" required></label>
+          <label>Phone <input name="phone" type="tel"></label>
+        </div>
+        <label>Clothing size, if the product is apparel <input name="clothing_size" placeholder="M"></label>
+        <button class="btn cobalt" type="submit">Save shipping details</button>
+      </form>
+
+    {% elif c.status == 'accepted' %}
+      <h2>Waiting for {{ c.brand.company_name }} to fund the campaign</h2>
+      <p class="muted" style="margin:0;">Your shipping details are saved. The product ships once the payment of {{ c.base_payment|money }} is secured.</p>
+
+    {% elif c.status == 'paid_base' %}
+      <h2>Your payment is secured</h2>
+      <p class="muted" style="margin:0;">{{ c.base_payment|money }} is held by Citra and goes to your PayPal once your results are verified. {{ c.brand.company_name }} will send the product.</p>
+
+    {% elif c.status == 'content_due' %}
+      <h2>Post by {{ c.deadline_date.strftime('%B %d') }}</h2>
+      <p class="muted" style="margin:0;">Report your results by {{ c.results_due_date.strftime('%B %d') }}, a month after the post deadline. Your payment of {{ c.base_payment|money }} is secured.</p>
+      <form method="post" action="{{ url_for('submit_report', cid=c.id) }}" enctype="multipart/form-data" class="stack">
+        <div class="cols">
+          <label>Views <input type="number" name="views" min="0" required></label>
+          <label>Likes <input type="number" name="likes" min="0" required></label>
+        </div>
+        <label>Comments <input type="number" name="comments" min="0" required></label>
+        <label>Screenshot of your stats <input type="file" name="screenshot" accept="image/png,image/jpeg,image/webp" required></label>
+        <button class="btn cobalt" type="submit">Submit results</button>
+      </form>
+
+    {% elif c.status == 'reported' %}
+      <h2>Results submitted</h2>
+      <p class="muted" style="margin:0;">{{ c.brand.company_name }} is reviewing your numbers.</p>
+
+    {% elif c.status == 'report_ready' %}
+      {% if base_released %}
+        <h2>You were paid {{ c.base_payment|money }}</h2>
+        <p class="muted" style="margin:0;">The payment was sent to {{ c.influencer.paypal_email }}.
+        {% if bonus_earned %}You also earned a bonus of {{ c.bonus_amount|money }}; {{ c.brand.company_name }} will pay it next.{% endif %}</p>
+      {% else %}
+        <h2>{{ 'Results verified' if c.report.metrics_match else 'Results under review' }}</h2>
+        <p class="muted" style="margin:0;">{{ c.brand.company_name }} is reviewing the report and will release your payment of {{ c.base_payment|money }}.{% if bonus_earned %} Your results also earned the {{ c.bonus_amount|money }} bonus.{% endif %}</p>
+      {% endif %}
+
+    {% elif c.status in ['bonus_paid', 'completed'] %}
+      <h2>Campaign complete</h2>
+      <p class="muted" style="margin:0;">You received {{ (c.base_payment + (c.bonus_amount if c.status == 'bonus_paid' else 0))|money }} at {{ c.influencer.paypal_email }}.</p>
+
+    {% elif c.status == 'rejected' %}
+      <h2>You declined this offer</h2>
+
+    {% else %}
+      <h2>{{ STATUS_LABELS[c.status] }}</h2>
+    {% endif %}
+
+  {% else %}
+
+    {% if c.status == 'offered' %}
+      <h2>Waiting for {{ c.influencer.display_name }}</h2>
+      <p class="muted" style="margin:0;">They can accept, decline or propose changes.</p>
+
+    {% elif c.status == 'negotiating' and last %}
+      <h2>{{ c.influencer.display_name }} asks for {{ last.videos_count }} video{{ '' if last.videos_count == 1 else 's' }}</h2>
+      <form method="post" action="{{ url_for('answer_counter', cid=c.id) }}" class="actions">
+        <button class="btn cobalt" name="action" value="accept">Accept changes</button>
+        <button class="btn ghost" name="action" value="keep">Keep original terms</button>
+      </form>
+
+    {% elif c.status == 'accepted' %}
+      <h2>Fund the campaign</h2>
+      <p class="muted" style="margin:0;">Pay the base payment of {{ c.base_payment|money }} with PayPal. Citra holds it and releases it to {{ c.influencer.display_name }} only after the results are verified.</p>
+      <form method="post" action="{{ url_for('start_payment', cid=c.id, kind='base') }}">
+        <button class="btn cobalt" type="submit">Pay {{ c.base_payment|money }} with PayPal</button>
+      </form>
+      {% if not c.shipping %}<p class="muted" style="margin:0;">{{ c.influencer.display_name }} has not shared shipping details yet.</p>{% endif %}
+
+    {% elif c.status == 'paid_base' and not c.shipping %}
+      <h2>Waiting for shipping details</h2>
+      <p class="muted" style="margin:0;">The campaign is funded. {{ c.influencer.display_name }}'s address and size will appear here.</p>
+
+    {% elif c.status == 'paid_base' %}
+      <h2>Send the product</h2>
+      <p class="muted" style="margin:0;">Ship to the address on this page, then set the deadline for the content.</p>
+      <form method="post" action="{{ url_for('mark_delivered', cid=c.id) }}" class="stack">
+        <label>Content deadline <input type="date" name="deadline_date" min="{{ today.isoformat() }}" required></label>
+        <button class="btn cobalt" type="submit">Mark product as delivered</button>
+      </form>
+
+    {% elif c.status == 'content_due' %}
+      <h2>Waiting for the content</h2>
+      <p class="muted" style="margin:0;">{{ c.influencer.display_name }} posts by {{ c.deadline_date.strftime('%B %d') }} and reports results by {{ c.results_due_date.strftime('%B %d') }}.</p>
+
+    {% elif c.status == 'reported' %}
+      <h2>Results received</h2>
+      <p class="muted" style="margin:0;">The AI reads the screenshot, checks it against the reported numbers and writes the ROI report.</p>
+      <form method="post" action="{{ url_for('analyze', cid=c.id) }}">
+        <button class="btn cobalt" type="submit">Run the AI analysis</button>
+      </form>
+
+    {% elif c.status == 'report_ready' %}
+      {% if not base_released %}
+        <h2>Release {{ c.influencer.display_name }}'s payment</h2>
+        <p class="muted" style="margin:0;">Review the verification and the ROI report, then release the base payment of {{ c.base_payment|money }} from escrow.</p>
+        {% if c.report.metrics_match is sameas false %}
+          <p class="warn">The reported numbers do not match the screenshot. Review them before you release the payment.</p>
+        {% elif c.report.metrics_match is none %}
+          <p class="warn">The AI could not read the screenshot, so the numbers are not verified. Check them by hand before you release the payment.</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('release', cid=c.id, kind='base') }}">
+          <button class="btn cobalt" type="submit">Release base payment</button>
+        </form>
+        <form method="post" action="{{ url_for('analyze', cid=c.id) }}">
+          <button class="btn ghost" type="submit">Run the analysis again</button>
+        </form>
+      {% elif bonus_earned and not (bonus_pay and bonus_pay.status == 'completed') %}
+        <h2>Bonus earned</h2>
+        <p class="muted" style="margin:0;">The base payment was released. The confirmed results reached your goal, so {{ c.influencer.display_name }} earned the {{ c.bonus_amount|money }} bonus.</p>
+        <form method="post" action="{{ url_for('start_payment', cid=c.id, kind='bonus') }}">
+          <button class="btn cobalt" type="submit">Pay {{ c.bonus_amount|money }} bonus with PayPal</button>
+        </form>
+      {% elif bonus_earned and bonus_pay and not bonus_pay.paypal_payout_id %}
+        <h2>Bonus collected, payout pending</h2>
+        <p class="muted" style="margin:0;">The bonus was collected but the payout to the creator did not go through.</p>
+        <form method="post" action="{{ url_for('release', cid=c.id, kind='bonus') }}">
+          <button class="btn cobalt" type="submit">Retry the bonus payout</button>
+        </form>
+      {% else %}
+        <h2>Payment released</h2>
+      {% endif %}
+
+    {% elif c.status in ['bonus_paid', 'completed'] %}
+      <h2>Campaign complete</h2>
+      <p class="muted" style="margin:0;">{{ c.influencer.display_name }} was paid {{ (c.base_payment + (c.bonus_amount if c.status == 'bonus_paid' else 0))|money }}.</p>
+
+    {% elif c.status == 'rejected' %}
+      <h2>{{ c.influencer.display_name }} declined</h2>
+
+    {% else %}
+      <h2>{{ STATUS_LABELS[c.status] }}</h2>
+    {% endif %}
+
+  {% endif %}
+  </aside>
+  </div>
+</div>
+{% endblock %}
